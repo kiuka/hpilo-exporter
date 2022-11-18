@@ -70,18 +70,16 @@ def iloGetMetrics(host, port, user, password):
     
         if health_at_glance is not None:
                 for key, value in health_at_glance.items():
-                        for status in value.items():
-                                if status[0] == 'status':
-                                        gauge = 'hpilo_{}_gauge'.format(key)
-                                if status[1].upper() == 'OK':
-                                        prometheus_metrics.gauges[gauge].labels(product_name=product_name,
-                                                                                server_name=server_name).set(0)
-                                elif status[1].upper() == 'DEGRADED':
-                                        prometheus_metrics.gauges[gauge].labels(product_name=product_name,
-                                                                                server_name=server_name).set(1)
-                                else:
-                                        prometheus_metrics.gauges[gauge].labels(product_name=product_name,
-                                                                                server_name=server_name).set(2)
+                        gauge = 'hpilo_{}_gauge'.format(key)
+                        if value["status"].upper() == 'OK':
+                                prometheus_metrics.gauges[gauge].labels(product_name=product_name,
+                                                                        server_name=server_name).set(0)
+                        elif value["status"].upper() == 'DEGRADED':
+                                prometheus_metrics.gauges[gauge].labels(product_name=product_name,
+                                                                        server_name=server_name).set(1)
+                        else:
+                                prometheus_metrics.gauges[gauge].labels(product_name=product_name,
+                                                                        server_name=server_name).set(2)
 
         # get firmware version
         fw_version = ilo.get_fw_version()["firmware_version"]

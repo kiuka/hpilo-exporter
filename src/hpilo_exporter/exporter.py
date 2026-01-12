@@ -148,6 +148,15 @@ class RequestHandler(BaseHTTPRequestHandler):
                 """
                 # get parameters from the URL
                 url = urlparse(self.path)
+
+                # health endpoints (no iLO config needed)
+                if url.path in ("/healthz", "/livez"):
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/plain; charset=utf-8")
+                    self.end_headers()
+                    self.wfile.write(b"ok\n")
+                    return
+
                 # following boolean will be passed to True if an error is detected during the argument parsing
                 error_detected = False
                 query_components = parse_qs(urlparse(self.path).query)
@@ -189,7 +198,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                         self.send_response(200)
                         self.send_header('Content-Type', 'text/html')
                         self.end_headers()
-                        self.wfile.write("""<html>
+                        self.wfile.write(b"""<html>
                                 <head><title>HP iLO Exporter</title></head>
                                 <body>
                                         <h1>HP iLO Exporter</h1>

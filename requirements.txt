@@ -1,4 +1,4 @@
 prometheus-client>=0.0.19
 python-hpilo>=4.4
-futures>=3
+futures>=3; python_version < "3"
 

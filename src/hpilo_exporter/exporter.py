@@ -71,12 +71,17 @@ def iloGetMetrics(host, port, user, password):
         if health_at_glance is not None:
                 for key, value in health_at_glance.items():
                         gauge = 'hpilo_{}_gauge'.format(key)
-                        if value["status"].upper() == 'OK':
+                        status = value["status"].upper()
+
+                        if status == 'OK':
                                 prometheus_metrics.gauges[gauge].labels(product_name=product_name,
                                                                         server_name=server_name).set(0)
-                        elif value["status"].upper() == 'DEGRADED':
+                        elif status == 'DEGRADED':
                                 prometheus_metrics.gauges[gauge].labels(product_name=product_name,
                                                                         server_name=server_name).set(1)
+                        elif status == 'NOT INSTALLED':
+                                prometheus_metrics.gauges[gauge].labels(product_name=product_name,
+                                                                        server_name=server_name).set(-1)
                         else:
                                 prometheus_metrics.gauges[gauge].labels(product_name=product_name,
                                                                         server_name=server_name).set(2)

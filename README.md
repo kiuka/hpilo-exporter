@@ -1,3 +1,16 @@
+# Modifications
+
+This repository is a fork of https://github.com/IDNT/hpilo-exporter, with a few practical fixes and debugging improvements applied.
+
+## Changes in this fork
+- Properly handles the `"Not installed"` hardware state by exporting a value of `-1` instead of failing or emitting misleading data.
+- Prevents credential leakage by masking passwords in logs when request parameters are used.
+- Adds an optional debug mode that dumps the full `embedded_health` object to aid troubleshooting and schema inspection across iLO versions.
+
+## Docker image
+A prebuilt Docker image for this fork is available on Docker Hub:  
+https://hub.docker.com/r/kiuka/hpilo-exporter
+
 # HP iLO Metrics Exporter
 
 Blackbox like exporter used to export HP Server Integrated Lights Out (iLO) metrics to Prometheus. ILO version 1 to 4 is supported.
@@ -6,6 +19,7 @@ Blackbox like exporter used to export HP Server Integrated Lights Out (iLO) metr
 
 Here are the status code of gauge
 ```
+-1 - Not installed
 0 - OK
 1 - Degraded
 2 - Dead (Other)
@@ -70,7 +84,7 @@ query arguments or by setting environemnt varaibles.
 A request with query arguments will look like:
 
 ```
-curl 'http://127.0.0.1:9416/metrics?ilo_host=127.0.0.1&ilo_port=443&ilo_user=admin&ilo_password=admin'
+curl 'http://127.0.0.1:9416/metrics?ilo_host=127.0.0.1&ilo_port=443&ilo_user=admin&ilo_password=admin&debug=1'
 ```
 
 To specify the target using environment variables you have to define:
@@ -80,6 +94,7 @@ ILO_HOST=127.0.0.1
 ILO_PORT=443
 ILO_USER=admin
 ILO_PASSWORD=admin
+DEBUG=1
 ```
 
 Now you can omit the query arguments on the metrics endpoint:
@@ -89,6 +104,10 @@ curl 'http://127.0.0.1:9416/metrics'
 ```
 
 Any query argument will override the default provided on the environment.
+
+### Debug mode
+
+To view the raw data returned by the hpilo library, enable debug mode by setting the DEBUG=1 environment variable or by adding debug=1 to the request query parameters.
 
 ### Caching
 

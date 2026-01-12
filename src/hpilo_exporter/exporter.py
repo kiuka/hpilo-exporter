@@ -5,13 +5,16 @@ from __future__ import print_function
 from _socket import gaierror
 import sys
 import hpilo
+import json
 import os
+import re
 import ssl
 import time
 import threading
 import hpilo_exporter.prometheus_metrics as prometheus_metrics
 from http.server import BaseHTTPRequestHandler
 from http.server import HTTPServer
+from http import HTTPStatus
 from socketserver import ThreadingMixIn
 from prometheus_client import generate_latest, Summary
 from urllib.parse import parse_qs
@@ -29,7 +32,7 @@ ilo_tasks={}
 ilo_cache={}
 ilo_pool = futures.ThreadPoolExecutor(max_workers=2)
 
-def iloGetMetrics(host, port, user, password):
+def iloGetMetrics(host, port, user, password, log_message=None, debug=False):
     
         # this will be used to return the total amount of time the request took
         start_time = time.time()
@@ -66,7 +69,11 @@ def iloGetMetrics(host, port, user, password):
                 server_name = ""
             
         # get health at glance
-        health_at_glance = ilo.get_embedded_health()['health_at_a_glance']
+        embedded_health = ilo.get_embedded_health()
+        health_at_glance = embedded_health['health_at_a_glance']
+
+        if debug and log_message is not None:
+            log_message("DEBUG data=embedded_health result=%s", json.dumps(embedded_health, separators=(",", ":")))
     
         if health_at_glance is not None:
                 for key, value in health_at_glance.items():
@@ -149,12 +156,14 @@ class RequestHandler(BaseHTTPRequestHandler):
                 ilo_port = None
                 ilo_user = None
                 ilo_password = None
+                debug = False
                 try:
                         ilo_host = query_components.get('ilo_host', [''])[0] or os.environ['ILO_HOST']
                         ilo_port = int(query_components.get('ilo_port', [''])[0] or os.environ['ILO_PORT'])
                         ilo_user = query_components.get('ilo_user', [''])[0] or os.environ['ILO_USER']
                         ilo_password = query_components.get('ilo_password', [''])[0] or os.environ['ILO_PASSWORD']
                         ilo_cached = (query_components.get('ilo_cached', [''])[0] or os.environ.get('ILO_CACHED', '')) in ['true', '1', 't', 'y', 'yes']
+                        debug = (query_components.get('debug', [''])[0] or os.environ.get('DEBUG', '')) in ['true', '1', 't', 'y', 'yes']
                 except KeyError as e:
                         print_err("missing parameter %s" % e)
                         self.return_error()
@@ -165,7 +174,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                         if ilo_cached:
                                 metrics = iloGetCached(ilo_host, ilo_port, ilo_user, ilo_password)
                         else:
-                                metrics = iloGetMetrics(ilo_host, ilo_port, ilo_user, ilo_password)
+                                metrics = iloGetMetrics(ilo_host, ilo_port, ilo_user, ilo_password, self.log_message, debug)
         
                         if metrics is None:
                                 self.return_error()
@@ -192,6 +201,32 @@ class RequestHandler(BaseHTTPRequestHandler):
                         if not error_detected:
                                 self.send_response(404)
                         self.end_headers()
+
+        def log_request(self, code='-', size='-'):
+            """Log an accepted request.
+
+            This is called by send_response().
+
+            Security note:
+            Sensitive query parameters (e.g. ilo_password) are masked
+            before logging to avoid credential leakage in access logs.
+            """
+            if isinstance(code, HTTPStatus):
+                code = code.value
+
+            # prevent password to get into the logs
+            message = re.sub(
+                r'(ilo_password=)[^&\s]+',
+                r'\1***',
+                self.requestline,
+            )
+
+            self.log_message(
+                '"%s" %s %s',
+                message,
+                str(code),
+                str(size)
+            )
 
 class ILOExporterServer(object):
         """

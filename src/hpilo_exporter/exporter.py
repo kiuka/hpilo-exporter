@@ -62,55 +62,54 @@ def iloGetMetrics(host, port, user, password, log_message=None, debug=False):
                 product_name = ilo.get_product_name()
         except:
                 product_name = "Unknown HP Server"
-        
+
         try:
                 server_name = ilo.get_server_name()
         except:
                 server_name = ""
-            
+
+        registry, gauges = prometheus_metrics.build_metrics()
+
         # get health at glance
         embedded_health = ilo.get_embedded_health()
         health_at_glance = embedded_health['health_at_a_glance']
 
         if debug and log_message is not None:
             log_message("DEBUG data=embedded_health result=%s", json.dumps(embedded_health, separators=(",", ":")))
-    
+
         if health_at_glance is not None:
                 for key, value in health_at_glance.items():
                         gauge = 'hpilo_{}_gauge'.format(key)
                         status = value["status"].upper()
 
                         if status == 'OK':
-                                prometheus_metrics.gauges[gauge].labels(product_name=product_name,
-                                                                        server_name=server_name).set(0)
+                                gauges[gauge].labels(product_name=product_name,
+                                                     server_name=server_name).set(0)
                         elif status == 'DEGRADED':
-                                prometheus_metrics.gauges[gauge].labels(product_name=product_name,
-                                                                        server_name=server_name).set(1)
+                                gauges[gauge].labels(product_name=product_name,
+                                                     server_name=server_name).set(1)
                         elif status == 'NOT INSTALLED':
-                                prometheus_metrics.gauges[gauge].labels(product_name=product_name,
-                                                                        server_name=server_name).set(-1)
+                                gauges[gauge].labels(product_name=product_name,
+                                                     server_name=server_name).set(-1)
                         else:
-                                prometheus_metrics.gauges[gauge].labels(product_name=product_name,
-                                                                        server_name=server_name).set(2)
+                                gauges[gauge].labels(product_name=product_name,
+                                                     server_name=server_name).set(2)
 
         # get firmware version
         fw_version = ilo.get_fw_version()["firmware_version"]
-    
-        # prometheus_metrics.hpilo_firmware_version.set(fw_version)
-        prometheus_metrics.hpilo_firmware_version.labels(product_name=product_name,
-                                                        server_name=server_name).set(fw_version)
+        gauges['hpilo_firmware_version'].labels(product_name=product_name,
+                                                server_name=server_name).set(fw_version)
 
         # get power readings
         power_reading = ilo.get_power_readings()["present_power_reading"][0]
-
-        # prometheus_metrics.hpilo_present_power_reading(power_reading)
-        prometheus_metrics.hpilo_present_power_reading.labels(product_name=product_name, server_name=server_name).set(power_reading)
+        gauges['hpilo_present_power_reading'].labels(product_name=product_name,
+                                                     server_name=server_name).set(power_reading)
 
         # get the amount of time the request took
         REQUEST_TIME.observe(time.time() - start_time)
 
         # generate and publish metrics
-        return generate_latest(prometheus_metrics.registry)
+        return generate_latest(registry)
 
 def iloSetResult(key, future):
         try:

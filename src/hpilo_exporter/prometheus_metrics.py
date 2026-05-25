@@ -1,35 +1,31 @@
-from prometheus_client import Gauge
-from prometheus_client import REGISTRY
+from prometheus_client import CollectorRegistry, Gauge
 
-registry = REGISTRY
+LABELS = ["product_name", "server_name"]
 
-hpilo_vrm_gauge = Gauge('hpilo_vrm', 'HP iLO vrm status', ["product_name", "server_name"])
-hpilo_drive_gauge = Gauge('hpilo_drive', 'HP iLO drive status', ["product_name", "server_name"])
-hpilo_battery_gauge = Gauge('hpilo_battery', 'HP iLO battery status', ["product_name", "server_name"])
-hpilo_storage_gauge = Gauge('hpilo_storage', 'HP iLO storage status', ["product_name", "server_name"])
-hpilo_fans_gauge = Gauge('hpilo_fans', 'HP iLO fans status', ["product_name", "server_name"])
-hpilo_bios_hardware_gauge = Gauge('hpilo_bios_hardware', 'HP iLO bios_hardware status', ["product_name", "server_name"])
-hpilo_memory_gauge = Gauge('hpilo_memory', 'HP iLO memory status', ["product_name", "server_name"])
-hpilo_power_supplies_gauge = Gauge('hpilo_power_supplies', 'HP iLO power_supplies status', ["product_name",
-                                                                                            "server_name"])
-hpilo_processor_gauge = Gauge('hpilo_processor', 'HP iLO processor status', ["product_name", "server_name"])
-hpilo_network_gauge = Gauge('hpilo_network', 'HP iLO network status', ["product_name", "server_name"])
-hpilo_temperature_gauge = Gauge('hpilo_temperature', 'HP iLO temperature status', ["product_name", "server_name"])
-hpilo_firmware_version = Gauge('hpilo_firmware_version', 'HP iLO firmware version', ["product_name", "server_name"])
-hpilo_present_power_reading = Gauge('hpilo_present_power_reading', 'HP iLO present power reading', ["product_name", "server_name"])
+# (key used by exporter, metric name, help text)
+GAUGE_SPECS = [
+    ('hpilo_vrm_gauge', 'hpilo_vrm', 'HP iLO vrm status'),
+    ('hpilo_drive_gauge', 'hpilo_drive', 'HP iLO drive status'),
+    ('hpilo_battery_gauge', 'hpilo_battery', 'HP iLO battery status'),
+    ('hpilo_storage_gauge', 'hpilo_storage', 'HP iLO storage status'),
+    ('hpilo_fans_gauge', 'hpilo_fans', 'HP iLO fans status'),
+    ('hpilo_bios_hardware_gauge', 'hpilo_bios_hardware', 'HP iLO bios_hardware status'),
+    ('hpilo_memory_gauge', 'hpilo_memory', 'HP iLO memory status'),
+    ('hpilo_power_supplies_gauge', 'hpilo_power_supplies', 'HP iLO power_supplies status'),
+    ('hpilo_processor_gauge', 'hpilo_processor', 'HP iLO processor status'),
+    ('hpilo_network_gauge', 'hpilo_network', 'HP iLO network status'),
+    ('hpilo_temperature_gauge', 'hpilo_temperature', 'HP iLO temperature status'),
+    ('hpilo_firmware_version', 'hpilo_firmware_version', 'HP iLO firmware version'),
+    ('hpilo_present_power_reading', 'hpilo_present_power_reading', 'HP iLO present power reading'),
+]
 
-gauges = {
-    'hpilo_vrm_gauge': hpilo_vrm_gauge,
-    'hpilo_drive_gauge': hpilo_drive_gauge,
-    'hpilo_battery_gauge': hpilo_battery_gauge,
-    'hpilo_storage_gauge': hpilo_storage_gauge,
-    'hpilo_fans_gauge': hpilo_fans_gauge,
-    'hpilo_bios_hardware_gauge': hpilo_bios_hardware_gauge,
-    'hpilo_memory_gauge': hpilo_memory_gauge,
-    'hpilo_power_supplies_gauge': hpilo_power_supplies_gauge,
-    'hpilo_processor_gauge': hpilo_processor_gauge,
-    'hpilo_network_gauge': hpilo_network_gauge,
-    'hpilo_temperature_gauge': hpilo_temperature_gauge,
-    'hpilo_firmware_version': hpilo_firmware_version,
-    'hpilo_present_power_reading': hpilo_present_power_reading,
-}
+
+def build_metrics():
+    # Fresh registry per scrape so transient fallbacks (e.g. product_name =
+    # "Unknown HP Server") don't leave stale labelsets in a shared registry.
+    registry = CollectorRegistry()
+    gauges = {
+        key: Gauge(name, description, LABELS, registry=registry)
+        for key, name, description in GAUGE_SPECS
+    }
+    return registry, gauges
